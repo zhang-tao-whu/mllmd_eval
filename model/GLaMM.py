@@ -38,23 +38,23 @@ class GLaMMBaseModel:
     def __init__(self, config, **kwargs):
         super(GLaMMBaseModel, self).__init__(config)
         self.config = config
-        self.vision_pretrained = kwargs.get("vision_pretrained", None)
+        self.vision_pretrained = kwargs.get("vision_pretrained", None) # sam_vitl
 
         # Set config attributes if they don't exist
         self.config.train_mask_decoder = getattr(
             self.config, "train_mask_decoder", kwargs.get("train_mask_decoder", False)
-        )
+        )  # True
         self.config.out_dim = getattr(self.config, "out_dim", kwargs.get("out_dim", 512))
 
         self.initialize_glamm_model(self.config)
 
     def initialize_glamm_model(self, config):
         # Initialize the visual model
-        self.grounding_encoder = build_sam_vit_h(self.vision_pretrained)
-        self._configure_grounding_encoder(config)
+        self.grounding_encoder = build_sam_vit_h(self.vision_pretrained) # build sam
+        self._configure_grounding_encoder(config)  # frozen the encoder and make the sam decoder trainable
 
         # Initialize the text projection layer
-        self._initialize_text_projection_layer()
+        self._initialize_text_projection_layer()  # a mlp and make it in train mode
 
     def _configure_grounding_encoder(self, config):
         # Freezing visual model parameters
@@ -115,9 +115,9 @@ class GLaMMForCausalLM(LlavaLlamaForCausalLM):
         self.seg_token_idx = kwargs.pop("seg_token_idx")
 
     def _initialize_loss_weights(self, kwargs):
-        self.ce_loss_weight = kwargs.pop("ce_loss_weight", None)
-        self.dice_loss_weight = kwargs.pop("dice_loss_weight", None)
-        self.bce_loss_weight = kwargs.pop("bce_loss_weight", None)
+        self.ce_loss_weight = kwargs.pop("ce_loss_weight", None)  # 1.0
+        self.dice_loss_weight = kwargs.pop("dice_loss_weight", None)  # 0.5
+        self.bce_loss_weight = kwargs.pop("bce_loss_weight", None)  # 2.0
 
     def get_grounding_encoder_embs(self, pixel_values: torch.FloatTensor):
         with torch.no_grad():
@@ -191,9 +191,10 @@ class GLaMMForCausalLM(LlavaLlamaForCausalLM):
         return output_hidden_states
 
     def _training_path(self, global_enc_images, bboxes, input_ids, labels, attention_masks, offset):
-        global_enc_images = self._prepare_global_enc_image(global_enc_images, offset)
+        global_enc_images = self._prepare_global_enc_image(global_enc_images, offset) # clip encoder
         bboxes_list = bboxes
 
+        # llava_forward
         output = super().forward(
             images=global_enc_images, attention_mask=attention_masks, input_ids=input_ids, labels=labels,
             output_hidden_states=True, bboxes=bboxes_list, )
